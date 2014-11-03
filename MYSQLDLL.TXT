@@ -1,0 +1,134 @@
+Using mysql/2 3.22.26a from C and C++ programs. (rev 2)           1999-12-18
+=============================================================================
+
+Requirements:
+    mysql/2 3.22.26a installed and working
+    mysql.h (modified version included in this package)
+    mysqldll.lib (included in this package)
+    An OS/2 C/C++ compiler
+
+    I use IBM C/C++ 3.6 but it's probably very easy to make 
+    it work with other compilers. 
+
+
+How:
+    The header file (mysql.h) had to be modified to support the calling
+    convention of OS/2. The mysqldll.lib was created with implib.exe.
+
+
+Usage:
+    Ensure that the following header files are availible for your compiler:
+      mysql_com.h
+      mysql_version.h
+      mysql.h (modified version included in this package)
+
+    Link with 
+      mysqldll.lib
+
+
+Tips:
+
+    All needed documentation for the C api is in the MySql Manual (mysql.inf) but it took me 
+    a while to find out a few things. The API had a nasty habit of hanging the machine when
+    I called it with uninitlialized structures. So take care.
+
+    You cannot call the mysql api inside another thread. It made me crazy before i found it
+    out :-((. I assume that each thread need a separate connection but in my case I just
+    rewrote the code without threading.
+
+    Text is normally saved in the ANSI character set in mysql. If you plan to use it only
+    in your application it does not matter but if you want it to be useful on the net and
+    possible with phpMySqlAdmin (http://www.phpwizard.net/phpMyAdmin/) you should
+    assure that all NLS characters uses the ANSI coding. I have included a set of simple
+    conversion functions for the swedish NLS.
+
+
+
+Example code:
+
+    These are just snippets and will not compile by themselves but I hope that they
+    will help you.
+
+     #include <mysql.h>
+
+     MYSQL mysql;
+
+     memset(&mysql, 0, sizeof(mysql));
+
+     mysql_init(&mysql);
+     /* host and sockets and such should probably be put in a ini file... */
+     if (!mysql_real_connect(&mysql, "localhost", "root", NULL, "jma", 0, "\\socket\\mysql.sock", 0))
+        {
+        printf(szMessage, "Error: %s", mysql_error(&mysql));
+        return (FALSE);
+        }
+
+     MYSQL_RES	        *rs;
+     MYSQL_ROW          row;
+
+     sprintf(szSql, "SELECT F.*, R.* FROM tFaktura F, tFakturaRad R WHERE F.year = %d AND F.fakturaid = R.fakturaid ORDER BY F.fakturaid, R.fakturaid", iCurYear);
+     mysql_real_query(&mysql, szSql, strlen(szSql));
+     rs = mysql_store_result(&mysql);
+
+     while ( (row = mysql_fetch_row(rs)) )
+           {
+           /* The row contains the fields in a array row[0] to row[x] where x is the 
+               last field in the result set */
+           /* Since each field is returned in a string you must convert it to 
+               whatever you need (int, float) using atof(), atoi() before using it */
+           printf("%d", atoi(row[0]));
+           }
+
+     mysql_free_result(rs);
+
+     /* UPDATEs and DELETEs needs no resultsets */
+
+     sprintf(szSql, "DELETE FROM tKund WHERE kundid = %d", iRecordNo);
+     if (mysql_real_query(&mysql, szSql, strlen(szSql)) != 0)
+        return (FALSE);
+
+     mysql_close(&mysql);
+
+/*-----------------------------------------------------------------------------
+   GetLastCustomerId: Find last customer id.
+-----------------------------------------------------------------------------*/
+int  GetLastCustomerId(void)
+     {
+     MYSQL mysql;
+     char               szSql[64];
+     MYSQL_RES          *rs;
+     MYSQL_ROW          row;
+     int                iNumber;
+
+
+    sprintf(szSql, "SELECT MAX(kundid) AS kundmin FROM tKund");
+
+    if (mysql_real_query(&mysql, szSql, strlen(szSql)) != 0)
+       return(0);
+
+    rs = mysql_store_result(&mysql);
+    row = mysql_fetch_row(rs);       
+
+    if (row != NULL)
+       iNumber = atoi(row[0]);
+
+    mysql_free_result(rs);
+
+    return(iNumber);
+    }
+
+
+
+Thanks to:
+
+    Antony T Curtis <antony.curtis@olcs.net>
+    for porting mysql to OS/2
+
+    Brian Havard <bjh@apache.org>
+    for porting Apache and PHP to OS/2 
+
+
+
+How to contact me:
+    email: jma@jmast.se
+    
